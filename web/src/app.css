@@ -1,0 +1,314 @@
+/* character select, ported verbatim from the lab (E:\SeaM_UI_Lab\SeaM MultiChar).
+   no backdrop-filter (cef paints it black), no feTurbulence. */
+
+@font-face {
+  font-family: 'Cinzel';
+  src: url('./lib/fonts/cinzel-var.woff2') format('woff2-variations');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+/* only 400 -- every bold on this screen is cinzel, so spectral 500/700 shipped 45kb for nothing */
+@font-face {
+  font-family: 'Spectral';
+  src: url('./lib/fonts/spectral-400.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: block;
+}
+
+:root {
+  --hull:       #170f0a;
+  --plank:      #241a12;
+  --plank-lite: #33251a;
+
+  --brass:      #c9974a;
+  --brass-lite: #edcd8e;
+  --brass-deep: #7a5220;
+
+  --parch:      #e9d9b4;
+  --parch-2:    #d6bd8f;
+  --parch-3:    #bda070;
+  --ink:        #3a2a16;
+  --ink-2:      #6b5334;
+  --wax:        #8c2f24;
+
+  /* text on dark, three levels only */
+  --foam:     #eaf1f2;
+  --drift:    rgba(234,241,242,.62);
+  --drift-lo: rgba(234,241,242,.34);
+
+  /* the one interactive colour. Config.UI.accent overwrites this at runtime. */
+  --signal:     #c9974a;
+  --signal-rgb: 201,151,74;
+
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  --ease: cubic-bezier(.22,.61,.36,1);
+
+  --ui:      'Spectral', Georgia, 'Times New Roman', serif;
+  --engrave: 'Cinzel', Georgia, serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:transparent; color:var(--foam);
+  font-family:var(--ui); font-size:16px; -webkit-font-smoothing:antialiased;
+}
+
+/* the brass hairline + diamond under the rail title */
+.rule { display:flex; align-items:center; gap:10px; width:100%; margin-top:15px; }
+.rule::before, .rule::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(201,151,74,.55),transparent); }
+.rule i { width:7px; height:7px; transform:rotate(45deg); background:var(--brass); flex:none; }
+
+/* ---- root ---- */
+.cs { position:fixed; inset:0; }
+.cs .scrim {
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(100deg, rgba(8,5,3,.94) 0%, rgba(8,5,3,.72) 28%, rgba(8,5,3,0) 56%),
+    linear-gradient(to top, rgba(8,5,3,.88) 0%, rgba(8,5,3,0) 40%);
+}
+
+/* ---- the rail ---- */
+.rail { position:absolute; top:0; left:0; bottom:0; width:392px; padding:44px 34px 30px; display:flex; flex-direction:column; }
+.rail-head { padding-bottom:20px; }
+.eyebrow { font-family:var(--engrave); font-size:11px; font-weight:700; letter-spacing:.30em; text-transform:uppercase; color:var(--brass); }
+.rail-title { margin-top:12px; font-family:var(--engrave); font-size:29px; font-weight:800; letter-spacing:.05em; color:var(--parch); line-height:1.1; }
+.tagline { margin-top:9px; font-size:13.5px; color:var(--drift); line-height:1.5; max-width:300px; }
+/* the sign-on row lives with the articles, not pinned away at the bottom */
+.rail-body { flex:1; margin-top:20px; min-height:0; display:flex; flex-direction:column; gap:14px; }
+.rail-foot { padding-top:18px; display:flex; flex-direction:column; gap:12px; }
+.foot-links { display:flex; gap:16px; }
+.flink { background:none; border:0; padding:0; cursor:pointer; font-family:var(--engrave); font-size:11.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--drift); }
+.flink:hover { color:var(--brass-lite); }
+
+/* ---- berths: shared skeleton, the four styles only re-dress it ---- */
+.rs { display:flex; flex-direction:column; }
+.berth { position:relative; display:grid; grid-template-columns:34px 1fr; align-items:center; gap:14px; cursor:pointer; text-align:left; border:0; background:none; width:100%; font:inherit; color:inherit; }
+.berth .seal {
+  width:30px; height:30px; border-radius:50%; display:grid; place-items:center; flex:none;
+  font-family:var(--engrave); font-size:12px; font-weight:700; font-variant-numeric:tabular-nums;
+}
+/* the text column must be able to shrink or the ellipsis never kicks in */
+.berth .bx { min-width:0; }
+.berth .bn { display:block; font-family:var(--engrave); font-size:15.5px; font-weight:700; letter-spacing:.045em; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.berth .bs { display:block; margin-top:4px; font-size:12px; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.berth.vacant .bn { font-style:italic; font-weight:400; }
+
+/* articles: one torn sheet, every berth written on it */
+.rs-articles {
+  padding:18px 20px 16px; color:var(--ink);
+  background:linear-gradient(158deg, var(--parch) 0%, var(--parch-2) 58%, var(--parch-3) 100%);
+  box-shadow:0 20px 46px -14px rgba(0,0,0,.75), inset 0 0 30px rgba(122,82,32,.22);
+  clip-path:polygon(1.8% 1.2%, 34% 0%, 68% 1.4%, 99.2% .4%, 98.4% 26%, 100% 52%, 98.8% 76%, 99.4% 99.2%, 61% 100%, 26% 98.6%, .6% 99.5%, 1.6% 74%, 0% 48%, 1.4% 24%);
+}
+.rs-articles .ah { font-family:var(--engrave); font-size:10px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-2); padding:0 2px 10px; box-shadow:inset 0 -1px 0 rgba(58,42,22,.3); }
+.rs-articles .berth { padding:12px 6px; border-radius:4px; }
+.rs-articles .berth + .berth { box-shadow:inset 0 1px 0 rgba(58,42,22,.18); }
+.rs-articles .seal { background:var(--wax); color:#f3e2c4; box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 1px 2px rgba(0,0,0,.3); }
+.rs-articles .bs { color:var(--ink-2); }
+.rs-articles .berth.vacant .seal { background:none; color:rgba(58,42,22,.45); box-shadow:inset 0 0 0 1px rgba(58,42,22,.32); }
+.rs-articles .berth.vacant .bn { color:var(--ink-2); }
+.rs-articles .berth:hover { background:rgba(58,42,22,.10); }
+.rs-articles .berth.on { background:rgba(58,42,22,.15); }
+.rs-articles .berth.on .bn { text-decoration:underline; text-decoration-color:rgba(140,47,36,.6); text-underline-offset:4px; }
+
+/* berth plates: each hand gets their own bolted plate */
+.rs-plates { gap:9px; }
+.rs-plates .berth {
+  padding:13px 15px; border-radius:3px;
+  background:linear-gradient(180deg, rgba(46,33,22,.92) 0%, rgba(20,14,9,.92) 100%);
+  box-shadow: inset 0 0 0 1px rgba(201,151,74,.42), inset 0 1px 0 rgba(255,255,255,.07), 0 12px 28px -12px rgba(0,0,0,.8);
+}
+.rs-plates .seal { color:rgba(201,151,74,.75); box-shadow:inset 0 0 0 1px rgba(201,151,74,.38); }
+.rs-plates .bn { color:var(--parch-2); text-transform:uppercase; font-size:14px; letter-spacing:.07em; }
+.rs-plates .bs { color:var(--drift-lo); }
+.rs-plates .berth:hover { box-shadow: inset 0 0 0 1px rgba(201,151,74,.7), inset 0 1px 0 rgba(255,255,255,.1), 0 12px 28px -12px rgba(0,0,0,.8); }
+.rs-plates .berth.on { background:linear-gradient(180deg, rgba(201,151,74,.26) 0%, rgba(201,151,74,.05) 100%); box-shadow:inset 0 0 0 1px var(--brass), inset 3px 0 0 var(--brass); }
+.rs-plates .berth.on .bn { color:#fff5e0; }
+.rs-plates .berth.on .seal { color:var(--brass-lite); box-shadow:inset 0 0 0 1px rgba(201,151,74,.6); }
+.rs-plates .berth.vacant { background:none; box-shadow:inset 0 0 0 1px rgba(201,151,74,.18); }
+.rs-plates .berth.vacant .bn { color:var(--drift-lo); }
+.rs-plates .berth .bolt { position:absolute; width:4px; height:4px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--brass-lite), var(--brass-deep)); }
+.rs-plates .berth .bolt.tl{top:6px;left:6px} .rs-plates .berth .bolt.tr{top:6px;right:6px}
+.rs-plates .berth .bolt.bl{bottom:6px;left:6px} .rs-plates .berth .bolt.br{bottom:6px;right:6px}
+.rs-plates .berth.vacant .bolt { opacity:.35; }
+
+/* manifest: no panel at all, rows float on the scrim */
+.rs-manifest .berth { padding:13px 2px; }
+.rs-manifest .berth + .berth { box-shadow:inset 0 1px 0 rgba(255,255,255,.10); }
+.rs-manifest .seal { color:var(--drift-lo); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16); }
+.rs-manifest .bn { color:var(--foam); text-shadow:0 1px 4px rgba(0,0,0,.9); }
+.rs-manifest .bs { color:var(--drift); text-shadow:0 1px 4px rgba(0,0,0,.9); }
+.rs-manifest .berth:hover .bn { color:var(--signal); }
+.rs-manifest .berth.on { box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 3px 0 0 var(--signal); padding-left:11px; }
+.rs-manifest .berth.on .bn { color:var(--signal); }
+.rs-manifest .berth.on .seal { color:var(--signal); box-shadow:inset 0 0 0 1px rgba(var(--signal-rgb),.5); }
+.rs-manifest .berth.vacant .bn { color:var(--drift-lo); }
+
+/* logbook: a bound ledger, ruled lines and a stitched spine */
+.rs-logbook {
+  position:relative; padding:16px 18px 14px 26px; border-radius:2px 8px 8px 2px;
+  background:linear-gradient(180deg, rgba(30,22,14,.94), rgba(14,10,7,.94));
+  box-shadow:inset 0 0 0 1px rgba(201,151,74,.28), 0 16px 38px -14px rgba(0,0,0,.8);
+}
+/* the sewn spine is what makes it read as bound rather than just another plate */
+.rs-logbook::before { content:""; position:absolute; top:0; bottom:0; left:9px; width:2px; background:linear-gradient(180deg,transparent,rgba(201,151,74,.5) 12%,rgba(201,151,74,.5) 88%,transparent); }
+.rs-logbook .ah { font-family:var(--engrave); font-size:10px; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:rgba(201,151,74,.7); padding-bottom:10px; box-shadow:inset 0 -1px 0 rgba(201,151,74,.25); }
+.rs-logbook .berth { padding:12px 4px; }
+.rs-logbook .berth + .berth { box-shadow:inset 0 1px 0 rgba(201,151,74,.16); }
+.rs-logbook .seal { color:rgba(201,151,74,.65); box-shadow:inset 0 0 0 1px rgba(201,151,74,.3); }
+.rs-logbook .bn { color:var(--parch-2); }
+.rs-logbook .bs { color:var(--drift-lo); }
+.rs-logbook .berth:hover .bn { color:#fff3dc; }
+.rs-logbook .berth.on { background:linear-gradient(90deg, rgba(201,151,74,.20), transparent); box-shadow:inset 0 1px 0 rgba(201,151,74,.16), inset 2px 0 0 var(--brass); }
+.rs-logbook .berth.on .bn { color:#fff5e0; }
+.rs-logbook .berth.vacant .bn { color:var(--drift-lo); }
+
+/* ---- the particulars card ---- */
+.card { position:absolute; left:426px; bottom:52px; width:520px; }
+.cd-slot { font-family:var(--engrave); font-size:10px; font-weight:700; letter-spacing:.26em; text-transform:uppercase; }
+.cd-name { margin-top:9px; font-family:var(--engrave); font-size:38px; font-weight:800; letter-spacing:.03em; line-height:1.05; }
+.cd-meta { display:flex; flex-wrap:wrap; gap:0 34px; margin-top:17px; padding-top:15px; }
+.cd-meta .m { min-width:92px; padding:5px 0; }
+.cd-meta dt { font-family:var(--engrave); font-size:9.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; }
+.cd-meta dd { margin-top:5px; font-size:14px; font-variant-numeric:tabular-nums; }
+.cd-acts { display:flex; align-items:center; gap:14px; margin-top:22px; }
+
+.cd-parch {
+  padding:22px 26px 20px; color:var(--ink);
+  background:linear-gradient(150deg, var(--parch) 0%, var(--parch-2) 60%, var(--parch-3) 100%);
+  box-shadow:0 22px 50px -14px rgba(0,0,0,.78), inset 0 0 34px rgba(122,82,32,.22);
+  clip-path:polygon(1% 2.5%, 30% 0%, 66% 1.8%, 99.4% .6%, 98.6% 30%, 100% 62%, 98.9% 97.5%, 58% 100%, 24% 98%, .5% 99.4%, 1.4% 66%, 0% 32%);
+}
+.cd-parch .cd-slot { color:var(--ink-2); }
+.cd-parch .cd-name { color:var(--ink); }
+.cd-parch .cd-meta { box-shadow:inset 0 1px 0 rgba(58,42,22,.3); }
+.cd-parch .cd-meta dt { color:var(--ink-2); }
+.cd-parch .cd-meta dd { color:var(--ink); }
+
+.cd-brass {
+  position:relative; padding:22px 26px 20px; border-radius:3px;
+  background:linear-gradient(180deg, rgba(46,33,22,.94) 0%, rgba(18,12,8,.94) 100%);
+  box-shadow: inset 0 0 0 1px rgba(201,151,74,.5), inset 0 0 0 4px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08), 0 22px 50px -16px rgba(0,0,0,.85);
+}
+.cd-brass .cd-slot { color:var(--brass); }
+.cd-brass .cd-name { color:var(--parch); }
+.cd-brass .cd-meta { box-shadow:inset 0 1px 0 rgba(201,151,74,.3); }
+.cd-brass .cd-meta dt { color:rgba(201,151,74,.75); }
+.cd-brass .cd-meta dd { color:var(--foam); }
+.cd-brass .bolt { position:absolute; width:5px; height:5px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--brass-lite), var(--brass-deep)); }
+.cd-brass .bolt.tl{top:9px;left:9px} .cd-brass .bolt.tr{top:9px;right:9px}
+.cd-brass .bolt.bl{bottom:9px;left:9px} .cd-brass .bolt.br{bottom:9px;right:9px}
+
+.cd-plain .cd-slot { color:var(--drift-lo); text-shadow:0 1px 4px rgba(0,0,0,.9); }
+.cd-plain .cd-name { color:var(--foam); text-shadow:0 2px 10px rgba(0,0,0,.95); }
+.cd-plain .cd-meta { box-shadow:inset 0 1px 0 rgba(255,255,255,.14); }
+.cd-plain .cd-meta dt { color:var(--drift-lo); text-shadow:0 1px 4px rgba(0,0,0,.9); }
+.cd-plain .cd-meta dd { color:var(--foam); text-shadow:0 1px 5px rgba(0,0,0,.95); }
+
+/* ---- buttons ---- */
+.sail {
+  padding:13px 30px; border:0; border-radius:var(--r-sm); cursor:pointer; color:#2a1c08;
+  font-family:var(--engrave); font-size:14px; font-weight:800; letter-spacing:.11em; text-transform:uppercase;
+  background:linear-gradient(180deg, var(--brass-lite), var(--brass) 55%, var(--brass-deep));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45), 0 10px 24px -8px rgba(201,151,74,.55);
+}
+.sail:hover { filter:brightness(1.08); }
+.sail:disabled { cursor:default; filter:none; opacity:.45; }
+.ghostb {
+  padding:13px 22px; border:0; border-radius:var(--r-sm); cursor:pointer;
+  font-family:var(--engrave); font-size:12px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--drift); background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.ghostb:hover { color:var(--foam); background:rgba(255,255,255,.11); }
+.ghostb:disabled { cursor:default; opacity:.45; }
+.ghostb.onpaper { color:var(--ink-2); background:rgba(58,42,22,.08); box-shadow:inset 0 0 0 1px rgba(58,42,22,.3); }
+.ghostb.onpaper:hover { color:var(--ink); background:rgba(58,42,22,.15); }
+.strike {
+  padding:13px 22px; border:0; border-radius:var(--r-sm); cursor:pointer;
+  font-family:var(--engrave); font-size:12px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:#f6e3d2; background:linear-gradient(180deg,#a83a2c,#7a2419); box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
+}
+.strike:hover { filter:brightness(1.08); }
+.strike:disabled { cursor:default; filter:none; opacity:.45; }
+/* the enlist row reads as an empty berth waiting to be signed */
+.enlist {
+  display:flex; align-items:center; gap:11px; padding:12px 14px; border:0; cursor:pointer; width:100%;
+  border-radius:var(--r-sm); background:none; box-shadow:inset 0 0 0 1px rgba(201,151,74,.3);
+  font-family:var(--engrave); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--brass);
+}
+.enlist:hover { background:rgba(201,151,74,.12); box-shadow:inset 0 0 0 1px rgba(201,151,74,.6); color:var(--brass-lite); }
+.enlist .q { font-size:16px; line-height:1; }
+
+/* ---- the empty state ---- */
+.firstlight { position:absolute; left:426px; bottom:52px; width:560px; }
+.firstlight .fl-t { font-family:var(--engrave); font-size:38px; font-weight:800; letter-spacing:.03em; color:var(--parch); text-shadow:0 2px 10px rgba(0,0,0,.9); line-height:1.1; }
+.firstlight .fl-c { margin-top:14px; font-size:15px; line-height:1.65; color:var(--drift); max-width:430px; text-shadow:0 1px 5px rgba(0,0,0,.9); }
+.firstlight .fl-a { margin-top:26px; }
+
+/* ---- sheets: sign on / strike off / company ---- */
+.sheetwrap { position:absolute; inset:0; display:grid; place-items:center; background:rgba(6,4,3,.66); }
+.sheet {
+  position:relative; width:600px; max-width:92%; padding:30px 34px 26px; color:var(--ink);
+  background:linear-gradient(152deg, var(--parch) 0%, var(--parch-2) 62%, var(--parch-3) 100%);
+  box-shadow:0 34px 80px -20px rgba(0,0,0,.85), inset 0 0 40px rgba(122,82,32,.2);
+  clip-path:polygon(.9% 1.6%, 28% 0%, 62% 1.2%, 99.3% .4%, 98.7% 24%, 100% 50%, 98.8% 74%, 99.4% 98.6%, 64% 100%, 30% 98.8%, .6% 99.5%, 1.3% 76%, 0% 50%, 1.1% 25%);
+}
+.sheet.narrow { width:470px; }
+.sh-eye { font-family:var(--engrave); font-size:10px; font-weight:700; letter-spacing:.26em; text-transform:uppercase; color:var(--ink-2); }
+.sh-t { margin-top:9px; font-family:var(--engrave); font-size:26px; font-weight:800; letter-spacing:.03em; color:var(--ink); line-height:1.15; }
+.sh-c { margin-top:12px; font-size:14px; line-height:1.65; color:var(--ink-2); }
+.sh-rule { display:flex; align-items:center; gap:10px; margin:16px 0 4px; }
+.sh-rule::before, .sh-rule::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(58,42,22,.45),transparent); }
+.sh-rule i { width:6px; height:6px; transform:rotate(45deg); background:rgba(58,42,22,.55); flex:none; }
+.sh-acts { display:flex; justify-content:flex-end; gap:12px; margin-top:26px; }
+
+/* ---- form: ruled lines you write on, not boxes ---- */
+.frow2 { display:flex; gap:22px; margin-top:16px; }
+.fld { flex:1; min-width:0; }
+.fld > span { display:block; font-family:var(--engrave); font-size:9.5px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); }
+.fld input, .fld select {
+  width:100%; margin-top:7px; padding:7px 2px; border:0; border-radius:0; background:none; color:var(--ink);
+  font-family:var(--ui); font-size:16px; box-shadow:inset 0 -1px 0 rgba(58,42,22,.42); user-select:text;
+  -webkit-appearance:none; appearance:none;
+}
+.fld input:focus, .fld select:focus { outline:none; box-shadow:inset 0 -2px 0 var(--wax); }
+.fld input::placeholder { color:rgba(58,42,22,.35); }
+/* native arrow is gone with the appearance reset, so draw one -- without it a select
+   reads as static text and nobody presses it */
+.fld.sel { position:relative; }
+/* block, or the select inside an inline span has no width to fill */
+.dob .dw { position:relative; display:block; }
+.fld.sel::after, .dob .dw::after {
+  content:""; position:absolute; right:4px; bottom:14px; width:0; height:0; pointer-events:none;
+  border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid rgba(58,42,22,.6);
+}
+.fld select option { background:#e9d9b4; color:#3a2a16; }
+/* three selects instead of input[type=date] -- cef draws its own picker and it is not ours */
+.dob { display:flex; gap:10px; margin-top:7px; }
+.dob .dw select { margin-top:0; padding-right:14px; }
+.dob .d-d { flex:0 0 72px; } .dob .d-m { flex:1; } .dob .d-y { flex:0 0 90px; }
+
+.seg { display:inline-flex; margin-top:8px; border-radius:4px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(58,42,22,.4); }
+.seg button {
+  padding:9px 22px; border:0; cursor:pointer; background:none; color:var(--ink-2);
+  font-family:var(--engrave); font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+}
+.seg button + button { box-shadow:inset 1px 0 0 rgba(58,42,22,.4); }
+.seg button:hover { background:rgba(58,42,22,.08); }
+.seg button.on { background:var(--wax); color:#f3e2c4; }
+
+.ferr { margin-top:16px; padding:10px 13px; border-radius:4px; font-size:13px; line-height:1.5; color:#5d1c14; background:rgba(140,47,36,.14); box-shadow:inset 0 0 0 1px rgba(140,47,36,.4); }
+
+/* ---- credits ---- */
+.creds { margin-top:6px; }
+.creds li { display:flex; justify-content:space-between; align-items:baseline; gap:18px; padding:11px 2px; list-style:none; }
+.creds li + li { box-shadow:inset 0 1px 0 rgba(58,42,22,.22); }
+.creds .r { font-family:var(--engrave); font-size:10px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-2); }
+.creds .nm2 { font-size:15px; color:var(--ink); }
+
+/* ---- toast: a note nailed to the rail ---- */
+.toastw { position:absolute; left:34px; bottom:30px; width:340px; padding:13px 16px; border-radius:3px; color:var(--parch); font-size:13px; line-height:1.5;
+  background:linear-gradient(180deg, rgba(46,33,22,.96), rgba(20,14,9,.96)); box-shadow:inset 0 0 0 1px rgba(201,151,74,.45), 0 14px 34px -12px rgba(0,0,0,.85); }
+.toastw.bad { color:#f0c4bb; box-shadow:inset 0 0 0 1px rgba(140,47,36,.7), 0 14px 34px -12px rgba(0,0,0,.85); }
